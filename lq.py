@@ -148,3 +148,97 @@ class lq_peri():
         p = len(matriz)
         return (matriz.sum()/(p*(p-1)))+1/p
     
+class region():
+    
+    def __init__(self, df_reg, poblacion, grupo = 'no'):
+        
+        if 'geometry' in df_reg.columns:
+            self.geo = df_reg.geometry
+            df_reg = df_reg.drop('geometry', axis = 1)
+        if grupo == 'no':
+            self.region = df_reg
+        else:
+            self.grupo = df_reg[grupo].unique
+            self.region = df_reg.drop(grupo, axis = 1)
+        self.poblacion = poblacion
+        self.variables =  list(self.region.columns)       
+        self.variables.remove(poblacion) 
+
+    def calc_lq(self):
+        lambdas = []
+        lqs = []
+        for i in self.variables:
+            s,l,lq_ = lq2(self.region, i, self.poblacion)
+            lambdas.append(l)
+            lqs.append(lq_)
+        lambdas = np.array(lambdas).T
+        lqs = np.array(lqs).T
+        self.s = s
+        return lambdas, lqs
+
+    def evaluar_var(self):
+        self.lambdas, self.lqs = self.calc_lq()
+        reg = self.region[self.variables].values
+        ssd = ((reg-self.lambdas )**2).mean(axis= 0)
+        tssd = ssd.mean()
+        return ssd,tssd
+        
+    def evaluar_prom(self):
+        self.lambdas, self.lqs = self.calc_lq()
+        reg = self.region[self.variables].values
+        ssd = (reg.mean(axis = 1)-self.lambdas.mean(axis = 1))**2
+        tssd = ssd.mean()
+        return ssd, tssd
+    
+class particion():
+    def __init__(self, grupos):
+        self.grupos = grupos
+        
+    def fit(self,X):
+        return self
+    def transform(self, X):
+        lista = X[self.grupos].unique()
+        regiones = {}
+        for i in lista:
+            r = X[X[self.grupos]==i]
+            regiones[i] = r
+        return regiones
+    
+def homogeneidad_particion(df, part, pobl= 'personas'):
+    dic = part.transform(df)
+    grupo = part.grupos
+    res = []
+    for k in dic.keys():
+        r = region(dic[k],pobl,grupo)
+        rr = r.evaluar_prom()[1]
+        res.append(rr)
+    return  np.mean(np.array(res))
+
+def ss(df):
+    medias = df.mean(axis = 0)
+    ssd = []
+    for i in range(df.shape[1]):
+        var = df[:,i]-medias[i]
+        var2 = var**2
+        ssd.append(sum(var2))
+    ssd = np.array(ssd)
+    return  sum(ssd)
+
+def SSD(DF, columna, atrib):
+    df = DF[atrib]
+    from sklearn import preprocessing
+    escalado = preprocessing.StandardScaler().fit(df)
+    TSS = ss(escalado.transform(df))
+    #TSS = ss(df)
+    WSS = []
+    for i in DF[columna].unique():
+        d = df[DF[columna] == i]
+        d = escalado.transform(d)
+        s = ss(d)
+        WSS.append(s)
+    WSS = np.sum(np.array(WSS))
+    BSS = TSS-WSS
+    RBTSS = BSS/TSS
+    return {'TSS': TSS, 'WSS': WSS, 'BSS': BSS, 'RBTSS':RBTSS}
+
+
