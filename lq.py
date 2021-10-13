@@ -10,6 +10,7 @@ calcula el coeficiente de localización
 import numpy as np
 import pandas as pd
 import scipy.stats as st
+from copy import copy 
 def lq(datos, campo, total):
     ind = datos[campo]/datos[total]
     indg = datos[campo].sum()/datos[total].sum()
@@ -124,15 +125,18 @@ class lq_peri():
     def calc_interv_lq(self, grupos):
         # grupos debe ser un array de largo N 
         idx = pd.IndexSlice
+        interv_lqs_ = []
         lqs_ = []
         #df = self.X.groupby([grupos, self.peris]).sum()
         for t in self.peris:
             df = self.X.loc[idx[:,t],:]
             df = df.groupby(grupos).sum()
             col = df.columns
-            interv = intervalos(df,col[0],col[1])[[0,1]].fillna(1)
-            lqs_.append(interv.values)
-        self.interv_lqs = lqs_
+            interv = intervalos(df,col[0],col[1])
+            lqs_.append(interv[[3]].values)
+            interv_lqs_.append(interv[[0,1]].values)
+        self.lqs_ = lqs_
+        self.interv_lqs = interv_lqs_
         return self.interv_lqs
     
     def calcular_indice(self,grupos):
@@ -242,3 +246,169 @@ def SSD(DF, columna, atrib):
     return {'TSS': TSS, 'WSS': WSS, 'BSS': BSS, 'RBTSS':RBTSS}
 
 
+class evaluaciones_lq():
+    
+    def __init__(self, grupos, variables, poblacion):
+        from procesos import peri_columna
+             
+        self.grupo = grupos
+        self.variables = variables
+        self.poblacion = poblacion
+        self.peri_col = peri_columna()
+        
+    def ajustar_datos(self, X):
+        # X debe ser un DF tipo panel de (NxT)x K 
+        # además de la variable de población
+        per = X.index.get_level_values(1).unique()[-1]
+        idx = pd.IndexSlice
+        var_pobl = X.loc[idx[:,per],self.poblacion]
+        self.bd_globales = {}
+        for i in self.variables:
+            bd = X[[i, self.poblacion]]
+            self.bd_globales[i] = bd
+            
+        self.bd_locales = {}
+        for i in self.variables:
+            bd = self.peri_col.fit_transform(X[[i]])
+            bd = pd.DataFrame(bd)
+            bd[self.poblacion] = var_pobl.values
+            self.bd_locales[i] = bd
+        
+        
+    def lq_globales(self, grupo):
+        
+        rdos_glob = {}
+        datos = self.bd_globales
+        for k in self.variables:
+            var = {}
+            lqperi = lq_peri(datos[k])
+            ind = [lqperi.calcular_indice(grupo),lqperi.calcular_indice_debil(grupo)]
+            var['indices'] = ind
+            var['lqperi'] = copy(lqperi)
+            rdos_glob[k] = var
+            
+        self.rdos_glob = rdos_glob
+        
+    def particion(self,X,grupo):
+        
+        lista = np.unique(grupo)
+        regiones = {}
+        for i in lista:
+            r = X[grupo == i]
+            regiones[i] = r
+        return regiones
+    
+    def lq_locales(self, grupo):
+        self.rdos_loc = {}
+        for i in self.variables:
+            var = {}
+            bd = self.bd_locales[i]
+            regiones = self.particion(bd,grupo)
+            res =[]
+            region_ = {}
+            for k in regiones.keys():
+                reg ={}
+                r = region(regiones[k],self.poblacion)
+                rr = r.evaluar_prom()[1]
+                ind = [r.evaluar_prom()[1], r.evaluar_var()[1]]
+                res.append(rr)
+                reg['indices'] = ind # Diferencia entre el prom lambda y el lambda teorico
+                reg['region'] = copy(r)
+                region_[k] = reg
+            var['regiones'] = region_
+            var['homogeneidad']= np.mean(np.array(res))
+            self.rdos_loc[i] = var
+    def calcular_indices(self, X):
+        #devuelve el índice débil y la homogeneidad de la partición
+        self.ajustar_datos(X)
+        self.lq_globales(self.grupo)
+        self.lq_locales(self.grupo)
+        rdos = {}
+        for v in self.variables:
+            ind_debil = self.rdos_glob[v]['indices'][1]
+            homog = self.rdos_loc[v]['homogeneidad']
+            rdos[v] = ind_debil,np.sqrt(homog)
+        return rdos
+         
+class evaluaciones_grupos():
+        
+    def evaluar(self,X,grupos):
+        # Grupos tiene que ser un array n filas (cantidad de casos) y k columnas (metodos)
+        rdos_grupos = []
+        obj_grupos = {}
+        self.ajustar_datos(X)
+        for j in range(grupos.shape[1]):
+           col = grupos[:,j]       
+           self.lq_globales(col)
+           self.lq_locales(col)
+           
+        
+#%% 
+import geopandas as gpd
+import os
+
+dir_principal = os.getcwd()
+dir_datos = dir_principal+'\\datos'
+
+covid = gpd.read_file(dir_datos+'/covid_periodos.shp', index = True)
+covid = covid.set_index(['link','mes']).sort_index(level = 0)
+covid = covid.loc[pd.IndexSlice[:,'2020-03':],:]
+covid = covid.to_crs('POSGAR94')
+
+# Separamos los campos geometricos del dataframe
+geo = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry']
+geo = geo.reset_index(level = 'mes', drop = True)
+centroides = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry'].to_crs('POSGAR94').centroid
+centroides = centroides.reset_index(level = 'mes', drop = True)
+print("las cordenadas CRS son: "+str(geo.crs))
+codiprov = covid.loc[pd.IndexSlice[:,'2021-01'],['codpcia','departamen','provincia']]
+
+
+columnas = ['clasificac', 'fallecido']
+
+# Variables acumuladas a partir del mes que todas tienen al menos 1 
+
+covid_acum = covid[columnas].groupby(covid.index.get_level_values(0)).cumsum()
+# buscamos el mes en que todos los dptos tienen al menos 1 contagio
+mes = 0
+valor = True
+while valor == True:
+    Mes = covid.index.get_level_values(1).unique()[mes]
+    valor = np.any(covid_acum.loc[pd.IndexSlice[:,Mes],'clasificac'] == 0)
+    mes +=1
+print("El mes desde el cuál todos los dptos tienen al menos 1 contagiado es: "+str(Mes))
+covid_acum['personas'] = covid.personas
+
+covid2 = covid_acum.loc[pd.IndexSlice[:,Mes:],:]
+covid_ult_mes = covid_acum.loc[pd.IndexSlice[:,'2021-07'],:]
+covid_ult_mes = covid_ult_mes.reset_index(level = 'mes', drop = True)
+
+#casos cada 10 mil habitantes
+fallecidos = covid2.fallecido/(covid.loc[pd.IndexSlice[:,Mes:],:].personas/10000)
+positivos = covid2.clasificac/(covid.loc[pd.IndexSlice[:,Mes:],:].personas/10000)
+falle = covid2.fallecido/(covid2.personas/10000)
+
+# Calculamos el coeficiente de localización
+from lq import *
+lq_ = lq(covid2,'fallecido','clasificac')
+lq_fall_conf = lq_[2]
+ind_fall_conf = lq_[0]
+
+#la variable se elige para comparar con diferentes opciones
+variable = fallecidos #covid2[['clasificac','personas']]
+
+#%%
+
+eva = evaluaciones_lq(np.random.randint(0,8,525), ['fallecido','clasificac'], 'personas')
+eva.ajustar_datos(covid_acum)        
+eva.lq_globales(eva.grupo)        
+eva.rdos_glob['fallecido']    
+#eva.rdos_['clasificac']
+
+eva.lq_locales(eva.grupo)
+eva.rdos_loc['fallecido']['homogeneidad']
+eva.rdos_loc['fallecido']['regiones'].keys()
+eva.rdos_loc['fallecido']['regiones'][0]['indices']
+eva.rdos_loc['fallecido']['regiones'][1]['indices']
+
+eva.calcular_indices(covid_acum)
