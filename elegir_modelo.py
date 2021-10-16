@@ -12,6 +12,13 @@ from copy import copy
 import pandas as pd
 import time
 import sys
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, Normalizer
+import procesos
+from tensorflow.keras import layers
+from tensorflow.keras.models import Model
+from tensorflow.keras import regularizers
+
 class metodo():
     def __init__(self, metodo, param,metric):
         
@@ -118,4 +125,106 @@ class metodo():
         m= st.fit_transform(metricas)
         return metricas[m.sum(axis = 1) == m.sum(axis = 1).max()]
         
+class clustering_autoencoder():
+
+    def __init__(self,centroides, n_encoders = 5):
+        self.n_encoders = n_encoders
+        self.centroides = centroides
+        self.pipe_coord = Pipeline([
+            ('periodos', procesos.peri_columna()),
+            ('coordenadas', procesos.agrega_centroides(centroides))
+                ]              
+            )
+                       
+        self.norm_l1 = Pipeline([
+             ('std_scale', StandardScaler()),
+             ('norm_l1', Normalizer('l1'))])
+        self.norm_l2 = Pipeline([
+             ('std_scale', StandardScaler()),
+            ('norm_l2', Normalizer('l2'))])
         
+        self.pipe = Pipeline([
+            ('coord', self.pipe_coord),
+            ('norml1', self.norm_l1)])
+  
+        
+    def ajustar_datos(self, x, n_variables = 1):
+        X = self.pipe.fit_transform(x)
+        geo = X[:,-2:]
+        dat = X[:,:-2]
+        
+        if n_variables == 1:
+            X = dat
+        else:
+            n = dat.shape[0]
+            k = dat.shape[1]
+            X = dat.reshape(n,n_variables,int(round(k/n_variables,0)))
+            
+        return X, geo
+
+    def model1(self, shape_input):
+        
+        entrada = layers.Input(shape = (shape_input,))
+        encoder = layers.Dense(self.n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(entrada)
+        #encoder = layers.Dense(5, activation = "relu")(encoder)
+        decoder = layers.Dense(shape_input, activation = "sigmoid")(encoder)
+        
+        self.autoencoder = Model(inputs = entrada, outputs = decoder)
+        self.autoencoder.compile(optimizer = "sgd", loss = "categorical_crossentropy")
+        self.enco = Model(inputs = entrada, outputs = encoder)
+        
+    def model2(self, shape_input):
+        #shape input es un array o lista con los tamaños para las entradas
+        
+        input1 = layers.Input(shape = (shape_input[0],))
+        input2 = layers.Input(shape = (shape_input[1],))
+        encoder1 = layers.Dense(self.n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input1)
+        encoder2 = layers.Dense(self.n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input2)
+        concat = layers.concatenate([encoder1,encoder2])
+        encoder = layers.Dense(self.n_encoders, activation = "relu")(concat)
+        
+        
+        decoder = layers.Dense(sum(shape_input), activation = "sigmoid")(encoder)
+        self.autoencoder = Model(inputs = [input1,input2], outputs = decoder)
+        self.autoencoder.compile(optimizer = "sgd", loss = "categorical_crossentropy")
+        self.enco = Model(inputs = [input1,input2], outputs = encoder)
+
+    def fit_autoencoder(self,x, n_variables):
+        X,geo = self.ajustar_datos(x,n_variables)
+        if n_variables == 1:
+            modelo = self.model1(X.shape[1])
+            self.autoencoder.fit(X,X, epochs = 50)
+            encoded_valores = self.enco.predict(X)
+
+        else:
+            modelo = self.model2([X.shape[2],X.shape[2]])
+            X1 = X[:,0,:]
+            X2 = X[:,1,:]
+            X = X.reshape(X.shape[0],X.shape[1]*X.shape[2])
+            self.autoencoder.fit((X1,X2),X, epochs = 50)
+            encoded_valores = self.enco.predict((X1,X2))
+        
+        import numpy as np
+        self.encoded_valores = encoded_valores
+        self.geo = geo 
+                
+        return np.c_[encoded_valores,geo]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

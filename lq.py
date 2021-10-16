@@ -344,71 +344,72 @@ class evaluaciones_grupos():
            
         
 #%% 
-import geopandas as gpd
-import os
 
-dir_principal = os.getcwd()
-dir_datos = dir_principal+'\\datos'
+# import geopandas as gpd
+# import os
 
-covid = gpd.read_file(dir_datos+'/covid_periodos.shp', index = True)
-covid = covid.set_index(['link','mes']).sort_index(level = 0)
-covid = covid.loc[pd.IndexSlice[:,'2020-03':],:]
-covid = covid.to_crs('POSGAR94')
+# dir_principal = os.getcwd()
+# dir_datos = dir_principal+'\\datos'
 
-# Separamos los campos geometricos del dataframe
-geo = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry']
-geo = geo.reset_index(level = 'mes', drop = True)
-centroides = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry'].to_crs('POSGAR94').centroid
-centroides = centroides.reset_index(level = 'mes', drop = True)
-print("las cordenadas CRS son: "+str(geo.crs))
-codiprov = covid.loc[pd.IndexSlice[:,'2021-01'],['codpcia','departamen','provincia']]
+# covid = gpd.read_file(dir_datos+'/covid_periodos.shp', index = True)
+# covid = covid.set_index(['link','mes']).sort_index(level = 0)
+# covid = covid.loc[pd.IndexSlice[:,'2020-03':],:]
+# covid = covid.to_crs('POSGAR94')
+
+# # Separamos los campos geometricos del dataframe
+# geo = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry']
+# geo = geo.reset_index(level = 'mes', drop = True)
+# centroides = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry'].to_crs('POSGAR94').centroid
+# centroides = centroides.reset_index(level = 'mes', drop = True)
+# print("las cordenadas CRS son: "+str(geo.crs))
+# codiprov = covid.loc[pd.IndexSlice[:,'2021-01'],['codpcia','departamen','provincia']]
 
 
-columnas = ['clasificac', 'fallecido']
+# columnas = ['clasificac', 'fallecido']
 
-# Variables acumuladas a partir del mes que todas tienen al menos 1 
+# # Variables acumuladas a partir del mes que todas tienen al menos 1 
 
-covid_acum = covid[columnas].groupby(covid.index.get_level_values(0)).cumsum()
-# buscamos el mes en que todos los dptos tienen al menos 1 contagio
-mes = 0
-valor = True
-while valor == True:
-    Mes = covid.index.get_level_values(1).unique()[mes]
-    valor = np.any(covid_acum.loc[pd.IndexSlice[:,Mes],'clasificac'] == 0)
-    mes +=1
-print("El mes desde el cuál todos los dptos tienen al menos 1 contagiado es: "+str(Mes))
-covid_acum['personas'] = covid.personas
+# covid_acum = covid[columnas].groupby(covid.index.get_level_values(0)).cumsum()
+# # buscamos el mes en que todos los dptos tienen al menos 1 contagio
+# mes = 0
+# valor = True
+# while valor == True:
+#     Mes = covid.index.get_level_values(1).unique()[mes]
+#     valor = np.any(covid_acum.loc[pd.IndexSlice[:,Mes],'clasificac'] == 0)
+#     mes +=1
+# print("El mes desde el cuál todos los dptos tienen al menos 1 contagiado es: "+str(Mes))
+# covid_acum['personas'] = covid.personas
 
-covid2 = covid_acum.loc[pd.IndexSlice[:,Mes:],:]
-covid_ult_mes = covid_acum.loc[pd.IndexSlice[:,'2021-07'],:]
-covid_ult_mes = covid_ult_mes.reset_index(level = 'mes', drop = True)
+# covid2 = covid_acum.loc[pd.IndexSlice[:,Mes:],:]
+# covid_ult_mes = covid_acum.loc[pd.IndexSlice[:,'2021-07'],:]
+# covid_ult_mes = covid_ult_mes.reset_index(level = 'mes', drop = True)
 
-#casos cada 10 mil habitantes
-fallecidos = covid2.fallecido/(covid.loc[pd.IndexSlice[:,Mes:],:].personas/10000)
-positivos = covid2.clasificac/(covid.loc[pd.IndexSlice[:,Mes:],:].personas/10000)
-falle = covid2.fallecido/(covid2.personas/10000)
+# #casos cada 10 mil habitantes
+# fallecidos = covid2.fallecido/(covid.loc[pd.IndexSlice[:,Mes:],:].personas/10000)
+# positivos = covid2.clasificac/(covid.loc[pd.IndexSlice[:,Mes:],:].personas/10000)
+# falle = covid2.fallecido/(covid2.personas/10000)
 
-# Calculamos el coeficiente de localización
-from lq import *
-lq_ = lq(covid2,'fallecido','clasificac')
-lq_fall_conf = lq_[2]
-ind_fall_conf = lq_[0]
+# # Calculamos el coeficiente de localización
+# from lq import *
+# lq_ = lq(covid2,'fallecido','clasificac')
+# lq_fall_conf = lq_[2]
+# ind_fall_conf = lq_[0]
 
-#la variable se elige para comparar con diferentes opciones
-variable = fallecidos #covid2[['clasificac','personas']]
+# #la variable se elige para comparar con diferentes opciones
+# variable = fallecidos #covid2[['clasificac','personas']]
 
 #%%
 
-eva = evaluaciones_lq(np.random.randint(0,8,525), ['fallecido','clasificac'], 'personas')
-eva.ajustar_datos(covid_acum)        
-eva.lq_globales(eva.grupo)        
-eva.rdos_glob['fallecido']    
-#eva.rdos_['clasificac']
+# eva = evaluaciones_lq(np.random.randint(0,8,525), ['fallecido','clasificac'], 'personas')
+# eva.ajustar_datos(covid_acum)        
+# eva.lq_globales(eva.grupo)        
+# eva.rdos_glob['fallecido']    
+# #eva.rdos_['clasificac']
 
-eva.lq_locales(eva.grupo)
-eva.rdos_loc['fallecido']['homogeneidad']
-eva.rdos_loc['fallecido']['regiones'].keys()
-eva.rdos_loc['fallecido']['regiones'][0]['indices']
-eva.rdos_loc['fallecido']['regiones'][1]['indices']
+# eva.lq_locales(eva.grupo)
+# eva.rdos_loc['fallecido']['homogeneidad']
+# eva.rdos_loc['fallecido']['regiones'].keys()
+# eva.rdos_loc['fallecido']['regiones'][0]['indices']
+# eva.rdos_loc['fallecido']['regiones'][1]['indices']
 
-eva.calcular_indices(covid_acum)
+# eva.calcular_indices(covid_acum)
