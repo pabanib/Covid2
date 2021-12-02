@@ -151,6 +151,38 @@ class lq_peri():
         self.matriz_intersec_deb = matriz
         p = len(matriz)
         return (matriz.sum()/(p*(p-1)))+1/p
+
+class lq_multiple():
+    def __init__(self, X, pares_calc):
+        # X debe ser un dataframe con todas las columnas a calcular
+        # pares_calc es un diccionario de pares de columnas que deseo calcular lq. (caracterítca, total)
+        self.X = X
+        self.pares = pares_calc#  X.index.get_level_values(1).unique()
+        
+    def calc_interv_lq(self, grupos):
+        # grupos debe ser un array de largo N 
+        lqs_ = []
+        for k in self.pares:
+            df = self.X[self.pares[k]]
+            df = df.groupby(grupos).sum()
+            col = df.columns
+            interv = intervalos(df,col[0],col[1])[[0,1]].fillna(1)
+            lqs_.append(interv.values)
+        self.interv_lqs = lqs_
+        return self.interv_lqs
+    
+    def calcular_indice(self,grupos):
+        l = self.calc_interv_lq(grupos)
+        matriz = matrix_inters_k(l)
+        self.matriz_intersec = matriz
+        return matriz.sum()/(len(matriz)*(len(matriz)-1))
+    
+    def calcular_indice_debil(self,grupos):
+        l = self.calc_interv_lq(grupos)
+        matriz = matrix_inters_k_debil(l)
+        self.matriz_intersec_deb = matriz
+        p = len(matriz)
+        return (matriz.sum()/(p*(p-1)))+1/p
     
 class region():
     

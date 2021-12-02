@@ -13,7 +13,7 @@ import pandas as pd
 import time
 import sys
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, Normalizer
+from sklearn.preprocessing import StandardScaler, Normalizer, PolynomialFeatures
 import procesos
 from tensorflow.keras import layers
 from tensorflow.keras.models import Model
@@ -132,6 +132,7 @@ class clustering_autoencoder():
         self.centroides = centroides
         self.pipe_coord = Pipeline([
             ('periodos', procesos.peri_columna()),
+            ('poly', PolynomialFeatures(2, interaction_only=False)),
             ('coordenadas', procesos.agrega_centroides(centroides))
                 ]              
             )
@@ -147,6 +148,11 @@ class clustering_autoencoder():
             ('coord', self.pipe_coord),
             ('norml1', self.norm_l1)])
   
+        self.pipe2 = Pipeline([
+            ('poly', PolynomialFeatures(2)),            
+            ('coord', self.pipe_coord),
+            ('norml1', self.norm_l1)])
+             
         
     def ajustar_datos(self, x, n_variables = 1):
         X = self.pipe.fit_transform(x)
@@ -186,8 +192,27 @@ class clustering_autoencoder():
         
         decoder = layers.Dense(sum(shape_input), activation = "sigmoid")(encoder)
         self.autoencoder = Model(inputs = [input1,input2], outputs = decoder)
-        self.autoencoder.compile(optimizer = "sgd", loss = "categorical_crossentropy")
+        self.autoencoder.compile(optimizer = "sgd", loss = "mse")#"categorical_crossentropy")
         self.enco = Model(inputs = [input1,input2], outputs = encoder)
+
+    def model3(self, shape_input):
+        #shape input es un array o lista con los tamaños para las entradas
+        
+        input1 = layers.Input(shape = (shape_input[0],))
+        input2 = layers.Input(shape = (shape_input[1],))
+        input3 = layers.Input(shape = (shape_input[2],))
+        encoder1 = layers.Dense(self.n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input1)
+        encoder2 = layers.Dense(self.n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input2)
+        encoder3 = layers.Dense(1, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input3)
+        concat = layers.concatenate([encoder1,encoder2,encoder3])
+        encoder = layers.Dense(self.n_encoders, activation = "relu")(concat)
+                
+        decoder = layers.Dense(sum(shape_input), activation = "sigmoid")(encoder)
+        self.autoencoder = Model(inputs = [input1,input2,input3], outputs = decoder)
+        self.autoencoder.compile(optimizer = "sgd", loss = "mse")#"categorical_crossentropy")
+        self.enco = Model(inputs = [input1,input2,input3], outputs = encoder)
+
+
 
     def fit_autoencoder(self,x, n_variables):
         X,geo = self.ajustar_datos(x,n_variables)
@@ -210,7 +235,31 @@ class clustering_autoencoder():
                 
         return np.c_[encoded_valores,geo]
 
-
+    def agregar_grupo(self, agrup):
+        from sklearn.preprocessing import OneHotEncoder
+        dummy = OneHotEncoder()
+        agrupacion = dummy.fit_transform(agrup)
+        return agrupacion
+        
+    def fit_autoencoder_grupo(self, x, agrup):
+        import numpy as np
+        X,geo = self.ajustar_datos(x,2)
+        agrupacion = self.agregar_grupo(agrup)
+        modelo = self.model3([X.shape[2],X.shape[2],agrupacion.shape[1]])
+        X1 = X[:,0,:]
+        X2 = X[:,1,:]
+        X = X.reshape(X.shape[0],X.shape[1]*X.shape[2])
+        X = np.c_[X,agrupacion.todense()]
+        self.autoencoder.fit((X1,X2,agrupacion.toarray()),X, epochs = 50, verbose = False)
+        encoded_valores = self.enco.predict((X1,X2,agrupacion.toarray()))
+        
+        self.encoded_valores = encoded_valores
+        self.geo = geo 
+                
+        return np.c_[encoded_valores,geo]        
+        
+        
+        
 
 
 
