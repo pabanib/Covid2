@@ -201,16 +201,17 @@ class clustering_autoencoder():
         input1 = layers.Input(shape = (shape_input[0],))
         input2 = layers.Input(shape = (shape_input[1],))
         input3 = layers.Input(shape = (shape_input[2],))
+        input4 = layers.Input(shape = (shape_input[3],))
         encoder1 = layers.Dense(self.n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input1)
         encoder2 = layers.Dense(self.n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input2)
         encoder3 = layers.Dense(1, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input3)
-        concat = layers.concatenate([encoder1,encoder2,encoder3])
+        concat = layers.concatenate([encoder1,encoder2,encoder3,input4])
         encoder = layers.Dense(self.n_encoders, activation = "relu")(concat)
                 
         decoder = layers.Dense(sum(shape_input), activation = "sigmoid")(encoder)
-        self.autoencoder = Model(inputs = [input1,input2,input3], outputs = decoder)
+        self.autoencoder = Model(inputs = [input1,input2,input3,input4], outputs = decoder)
         self.autoencoder.compile(optimizer = "sgd", loss = "mse")#"categorical_crossentropy")
-        self.enco = Model(inputs = [input1,input2,input3], outputs = encoder)
+        self.enco = Model(inputs = [input1,input2,input3,input4], outputs = encoder)
 
 
 
@@ -241,17 +242,18 @@ class clustering_autoencoder():
         agrupacion = dummy.fit_transform(agrup)
         return agrupacion
         
-    def fit_autoencoder_grupo(self, x, agrup):
+    def fit_autoencoder_grupo(self, x,pobl, agrup):
         import numpy as np
         X,geo = self.ajustar_datos(x,2)
         agrupacion = self.agregar_grupo(agrup)
-        modelo = self.model3([X.shape[2],X.shape[2],agrupacion.shape[1]])
+        modelo = self.model3([X.shape[2],X.shape[2],agrupacion.shape[1],1])
         X1 = X[:,0,:]
         X2 = X[:,1,:]
         X = X.reshape(X.shape[0],X.shape[1]*X.shape[2])
         X = np.c_[X,agrupacion.todense()]
-        self.autoencoder.fit((X1,X2,agrupacion.toarray()),X, epochs = 50, verbose = False)
-        encoded_valores = self.enco.predict((X1,X2,agrupacion.toarray()))
+        X = np.c_[X,pobl]
+        self.autoencoder.fit((X1,X2,agrupacion.toarray(),pobl),X, epochs = 50, verbose = False)
+        encoded_valores = self.enco.predict((X1,X2,agrupacion.toarray(),pobl))
         
         self.encoded_valores = encoded_valores
         self.geo = geo 
@@ -259,8 +261,7 @@ class clustering_autoencoder():
         return np.c_[encoded_valores,geo]        
         
         
-        
-
+version = 3   
 
 
 

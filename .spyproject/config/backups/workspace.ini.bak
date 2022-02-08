@@ -3,8 +3,8 @@ restore_data_on_startup = True
 save_data_on_exit = True
 save_history = True
 save_non_project_files = False
-project_type = empty-project-type
-recent_files = ['C:\\Users\\Pablo\\.spyder-py3\\temp.py', 'rdo_estudios_mendo.py', 'lq.py']
+project_type = 'empty-project-type'
+recent_files = ['lq.py', 'prueba infogeo.py', 'elegir_modelo.py', 'procesos.py']
 
 [main]
 version = 0.2.0

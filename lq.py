@@ -35,7 +35,7 @@ def intervalos(data, campo, total, a = .95):
     sd = np.sqrt(var)
     sd
     np.mean(indices[2])
-    sdnorm = st.t.ppf((1+a)/2,2)*sd
+    sdnorm = st.t.ppf((1+a)/2,1)*sd
     #sdnorm = st.norm.ppf((1+a)/2)*sd
     
     return pd.DataFrame([indices[2]-sdnorm,indices[2]+sdnorm.T,sdnorm,indices[2]]).T 
@@ -233,10 +233,16 @@ class particion():
     def fit(self,X):
         return self
     def transform(self, X):
-        lista = X[self.grupos].unique()
+        try:
+            lista = X[self.grupos].unique()
+        except:
+            lista = self.grupos    
         regiones = {}
         for i in lista:
-            r = X[X[self.grupos]==i]
+            try:
+                r = X[X[self.grupos]==i]
+            except:
+                r = X[self.grupos==i]
             regiones[i] = r
         return regiones
     

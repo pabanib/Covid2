@@ -9,10 +9,19 @@ import numpy as np
 
 class peri_columna(sk.base.BaseEstimator, sk.base.TransformerMixin):
     "Convierte el dataframe en un array de n filas y t columnas"
+    def __init__(self, poblacion = 'personas'):
+        self.poblacion = poblacion
     def fit(self, x, y = None):
         return self
     def transform(self, x, y= None):
-        return x.unstack().to_numpy()        
+        if self.poblacion in x.columns:
+            xx = x.unstack().to_numpy()
+            pob = xx[:,-1]
+            x = x.drop(self.poblacion, axis = 1)
+            xx = np.c_[x.unstack().to_numpy(),pob]
+        else:
+            xx = x.unstack().to_numpy()        
+        return xx
 
 class agrega_centroides(sk.base.BaseEstimator, sk.base.TransformerMixin):
     "Agrega los centroides al dataframe"
@@ -34,4 +43,4 @@ class agrega_centroides(sk.base.BaseEstimator, sk.base.TransformerMixin):
         coord = self.coordenadas(self.centroides)
         x = np.c_[x,coord]
         return x
-    
+
