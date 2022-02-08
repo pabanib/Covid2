@@ -658,8 +658,54 @@ class area_region():
         self.area_casos = df
         return gpd.GeoDataFrame(df, geometry = self.geo.values)
     
+    def proceso_area_mult(self, variables):
+        personas = self.personas
+        tot_pobl_region = self.tot_pobl_region 
+        regiones = self.regiones
+        n_regiones = len(np.unique(regiones))
+
+        casos = self.proceso_temp_region()
+        for i in range(variables-1):
+            casos_i = self.proceso_temp_region()
+            casos = pd.merge(casos,casos_i,left_index = True,right_index = True)
+        self.casos = casos
+        
+        Y = []
+        Dic = {}
+        for j in casos.columns:
+            X_0 = casos.loc[:,j] 
+            dic = {}
+            YY = []
+            for i in range(len(regiones)):
+                cod = regiones[i]
+                ind = np.where(np.unique(regiones) == cod)[0][0]
+                TP = tot_pobl_region[cod]
+                X = X_0.iloc[ind]
+                theta = personas.iloc[i]/TP
+                lamb = theta*X
+                y =  np.random.poisson(lamb)
+                YY.append(y)
+                dic[i] = [cod,y,X,personas.iloc[i],TP]
+            Y.append(YY)
+            Dic[j] = dic
+        Y = np.array(Y).T#.reshape(len(personas), len(casos.columns))
+        columnas = []
+        self.Dic = Dic
+        for j in range(variables):
+            vari = 'vari'+str(j)
+            for i in range(Y.shape[1]):
+                nombre = (vari,'peri'+str(i+1))
+                columnas.append(nombre)
+        columnas.append('personas')
+            
+        df = pd.DataFrame(np.c_[Y,personas], columns = columnas )
+        self.area_casos = df
+        return gpd.GeoDataFrame(df, geometry = self.geo.values)
+    
+    
     def convertir_a_panel(self):
         
+        df = self.area_casos
         df_ = df[df.columns[:list(df.columns).index('personas')]].stack()
         p = np.array([[self.personas.values,]]*self.peris)
         
@@ -723,15 +769,6 @@ def MI(X,model):
     real = regiones
     return metrics.adjusted_mutual_info_score(real,model.labels_)
 
-hiperparam['n_clusters'] = np.arange(5,50)
-hiperparam
-metricas['Hgr'] = Hg_relat
-
-km = metodo(sk.cluster.KMeans(), hiperparam, {'mi': MI})
-km.fit(pipe.fit_transform(panel_df))
-km.best_metrics_
-km.best_model_
-
 def compara_metricas(modelo, datos):
     try:
         data = pipe.fit_transform(datos)
@@ -751,24 +788,51 @@ def compara_metricas(modelo, datos):
     result = pd.DataFrame(result, columns = ['mi','ilq','hgr','sil','cal','dav','iner'])
     return result
 
+# transformación de variables a relación de casos con personas
+new_panel = panel_df['vari1']/panel_df['personas']
+new_panel = pd.DataFrame(new_panel)
+
+hiperparam['n_clusters'] = np.arange(5,50)
+hiperparam
+metricas['Hgr'] = Hg_relat
+
+#km con población por separado ponderanda igual que otras variables
+km = metodo(sk.cluster.KMeans(), hiperparam, {'mi': MI})
+km.fit(pipe.fit_transform(panel_df))
+km.best_metrics_
+km.best_model_
+
 result = compara_metricas(km, panel_df)
 result.corr()
 
 result[['mi','ilq','hgr','sil']].plot()
-result[result.hgr == result.hgr.min()]
+min_hgr = result[result.hgr == result.hgr.min()]
 
-result[['mi','ilq','hgr','sil']].drop(index = 25).plot()
-result.drop(index = 25).corr()
+result[['mi','ilq','hgr','sil']].drop(index = min_hgr.index[0]).plot()
+result.drop(index = min_hgr.index[0]).corr()
+
+km.modelos.iloc[min_hgr.index[0]]
 
 homog_relat2(df,km.best_model_['modelo'].iloc[0].labels_ )
 
-#km.metrics.Hgr.max()
 km.modelos.iloc[13]['modelo'].inertia_
 mapa_grupos(km)
-
 homog_relat2(df, km.modelos.iloc[13]['modelo'].labels_)
 
-df.plot(km.modelos.iloc[13]['modelo'].labels_)
+# km con relación entre casos sobre poblacion
+km2 = copy(km)
+km2.fit(pipe.fit_transform(new_panel))
+
+km2.best_metrics_
+km2.best_model_
+
+mapa_grupos(km2)
+result_km2 = compara_metricas(km2, new_panel)
+result_km2.corr()
+result_km2[['mi','ilq','hgr','sil']].plot()
+result_km2
+
+# kmeans considerando variables latentes partiendo con poblacion separada
 
 ae = clustering_autoencoder(centroides, n_encoders = 8)
 vl = ae.fit_autoencoder(panel_df, 1)
@@ -781,8 +845,7 @@ result2 = compara_metricas(ae_km,vl)
 result2.corr()
 result2[['mi','ilq','hgr','sil']].plot()
 
-new_panel = panel_df['vari1']/panel_df['personas']
-new_panel = pd.DataFrame(new_panel)
+# autoencoders kmeans considerando casos sobre población
 vl2 = ae.fit_autoencoder(new_panel, 1)
 ae_km.fit(vl2)
 ae_km.best_metrics_
@@ -791,3 +854,64 @@ result3 = compara_metricas(ae_km,vl2)
 result3.corr()
 result3[['mi','ilq','hgr','sil']].plot()
 pipe.fit_transform(new_panel)
+mapa_grupos(ae_km)
+
+# autoencoders considerando variables geográficas
+
+Moran(df['personas'], w_knn).I
+Moran_Local(df['peri2'], w_knn).Is
+
+I_locales = []
+for c in df.columns[:list(df.columns).index('geometry')]:
+    I = Moran_Local(df[c], w_knn).Is
+    I_locales.append(I)
+
+I_locales = np.array(I_locales)
+
+norm_l2.fit_transform(I_locales).T
+
+from tensorflow.keras import layers
+from tensorflow.keras.models import Model
+from tensorflow.keras import regularizers
+
+n_encoders = 8
+input1 = layers.Input(shape = [17,])
+input2 = layers.Input(shape= [18,])
+encoder1 = layers.Dense(n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input1)
+encoder2 = layers.Dense(n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input2)
+concat = layers.concatenate([encoder1,encoder2])
+encoder = layers.Dense(n_encoders, activation = "relu")(concat)
+      
+decoder = layers.Dense(17+18, activation = "sigmoid")(encoder)
+autoencoder = Model(inputs = [input1,input2], outputs = decoder)
+autoencoder.compile(optimizer = "sgd", loss = "mse")#"categorical_crossentropy")
+enco = Model(inputs = [input1,input2], outputs = encoder)
+
+in1 = pipe.fit_transform(new_panel)[:,:-2]
+in2 = norm_l2.fit_transform(I_locales).T
+X = np.c_[in1,in2]
+
+autoencoder.fit((in1,in2),X,epochs = 50)
+
+vl =  np.c_[enco.predict((in1,in2)),pipe.fit_transform(new_panel)[:,-2:]]
+
+ae_km_moran = copy(ae_km)
+ae_km_moran.fit(vl)
+ae_km_moran.best_metrics_
+ae_km_moran.best_model_
+mapa_grupos(ae_km_moran)
+
+result_aemoran = compara_metricas(ae_km_moran, new_panel)
+result_aemoran.corr()
+
+# simulaciones con más de una variable
+
+arm = area_region(covid_acum_geo.personas,regiones)
+df2 = arm.proceso_area_mult(2)
+panel_df2 = arm.convertir_a_panel()
+
+df_ = df2[df2.columns[:list(df2.columns).index('personas')]]
+df_
+
+list(zip(['vari1']*17,df.columns[:list(df.columns).index('personas')]))
+
