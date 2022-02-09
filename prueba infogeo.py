@@ -542,7 +542,7 @@ class casos_region():
         self.pop_size = pop
         self.gamma = gamma
         self.sigma = sigma
-        
+        self.peris = peris
         # Condiciones iniciales 
         i_0 = i_0/pop
         e_0 = 4*i_0
@@ -640,8 +640,9 @@ class area_region():
                 TP = tot_pobl_region[cod]
                 X = X_0.iloc[ind]
                 theta = personas.iloc[i]/TP
-                lamb = theta*X
-                y =  np.random.poisson(lamb)
+                lamb = round(theta*X + np.random.randn()*theta*X,0)
+                lamb = lamb if lamb>0 else 0
+                y =  np.random.poisson(lamb)+np.random.randint(0,round(lamb,0)+3)
                 YY.append(y)
                 dic[i] = [cod,y,X,personas.iloc[i],TP]
             Y.append(YY)
@@ -682,8 +683,9 @@ class area_region():
                 TP = tot_pobl_region[cod]
                 X = X_0.iloc[ind]
                 theta = personas.iloc[i]/TP
-                lamb = theta*X
-                y =  np.random.poisson(lamb)
+                lamb = round(theta*X + np.random.randn()*theta*X,0)
+                lamb = lamb if lamb>0 else 0
+                y =  np.random.poisson(lamb)+np.random.randint(0,round(lamb,0)+3)
                 YY.append(y)
                 dic[i] = [cod,y,X,personas.iloc[i],TP]
             Y.append(YY)
@@ -693,24 +695,32 @@ class area_region():
         self.Dic = Dic
         for j in range(variables):
             vari = 'vari'+str(j)
-            for i in range(Y.shape[1]):
+            for i in range(self.peris):
                 nombre = (vari,'peri'+str(i+1))
                 columnas.append(nombre)
-        columnas.append('personas')
-            
-        df = pd.DataFrame(np.c_[Y,personas], columns = columnas )
+        columnas = tuple(columnas)
+        columnas = pd.MultiIndex.from_tuples(columnas, names = ['variables','periodos'])
+        self.columnas = columnas
+        #columnas.append('personas')
+        df = pd.DataFrame(Y, columns = columnas )
+        df['personas'] = personas
         self.area_casos = df
         return gpd.GeoDataFrame(df, geometry = self.geo.values)
-    
-    
-    def convertir_a_panel(self):
+   
+    def convertir_a_panel(self,variables = 1):
         
         df = self.area_casos
-        df_ = df[df.columns[:list(df.columns).index('personas')]].stack()
+        if variables > 1:
+            df_ = df[df.columns[:list(df.columns).index(('personas',''))]].stack()
+            columnas = list(df_.columns.get_level_values(0).unique())
+        else:
+            df_ = df[df.columns[:list(df.columns).index('personas')]].stack()
+            columnas = list(['vari1'])
+        columnas.append('personas')
         p = np.array([[self.personas.values,]]*self.peris)
         
         X = np.c_[df_.values, p.T.reshape(-1,1)]
-        return pd.DataFrame(X, index = df_.index, columns = ['vari1','personas'])
+        return pd.DataFrame(X, index = df_.index, columns = columnas)
                 
 
 ar = area_region(covid_acum_geo.personas, regiones,17)
@@ -908,10 +918,47 @@ result_aemoran.corr()
 
 arm = area_region(covid_acum_geo.personas,regiones)
 df2 = arm.proceso_area_mult(2)
-panel_df2 = arm.convertir_a_panel()
+panel_df2 = arm.convertir_a_panel(2)
 
-df_ = df2[df2.columns[:list(df2.columns).index('personas')]]
-df_
+new_panel2 = panel_df2.apply(lambda x: x/panel_df2.personas)
+new_panel2 = new_panel2.drop('personas', axis = 1)
 
-list(zip(['vari1']*17,df.columns[:list(df.columns).index('personas')]))
+km.fit(pipe.fit_transform(new_panel2))
+km.best_metrics_
+mapa_grupos(km)
+new_panel2['vari3'] = np.random.rand(8925)
+km.fit(pipe.fit_transform(new_panel2))
+km.best_metrics_
+
+n_encoders = 8
+input1 = layers.Input(shape = [17,])
+input2 = layers.Input(shape= [17,])
+input3 = layers.Input(shape= [17,])
+input4 = layers.Input(shape= [17,])
+encoder1 = layers.Dense(n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input1)
+encoder2 = layers.Dense(n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input2)
+encoder3 = layers.Dense(n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input3)
+encoder4 = layers.Dense(n_encoders, activation = "relu", kernel_regularizer = regularizers.l1(0.1))(input4)
+concat = layers.concatenate([encoder1,encoder2,encoder3,encoder4])
+encoder = layers.Dense(n_encoders, activation = "relu")(concat)
+      
+decoder = layers.Dense(17*4, activation = "sigmoid")(encoder)
+autoencoder = Model(inputs = [input1,input2,input3,input4], outputs = decoder)
+autoencoder.compile(optimizer = "sgd", loss = "mse")#"categorical_crossentropy")
+enco = Model(inputs = [input1,input2,input3,input4], outputs = encoder)
+
+inputs = []
+for v in new_panel2.columns:
+    in1 = pipe.fit_transform(new_panel2[[v]])[:,:-2]
+    inputs.append(in1)
+X = np.array(inputs).reshape(525,4*17)
+
+autoencoder.fit(inputs, X, epochs = 50)
+enco.predict(inputs)
+
+autoencoder.fit((in1,in2),X,epochs = 50)
+
+vl = np.c_[enco.predict(inputs),pipe.fit_transform(new_panel2[[v]])[:,-2:] ]
+ae_km.fit(vl)
+ae_km.best_metrics_
 
