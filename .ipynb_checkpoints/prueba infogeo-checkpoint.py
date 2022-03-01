@@ -22,12 +22,12 @@ dir_datos = dir_principal+'\\datos'
 covid = gpd.read_file(dir_datos+'/covid_periodos.shp', index = True)
 covid = covid.set_index(['link','mes']).sort_index(level = 0)
 covid = covid.loc[pd.IndexSlice[:,'2020-03':],:]
-#covid = covid.to_crs({'init':'POSGAR94'})
+covid = covid.to_crs('POSGAR94')
 
 # Separamos los campos geometricos del dataframe
 geo = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry']
 geo = geo.reset_index(level = 'mes', drop = True)
-centroides = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry'].centroid#to_crs('POSGAR94').centroid
+centroides = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry'].centroid#.to_crs('POSGAR94').centroid
 centroides = centroides.reset_index(level = 'mes', drop = True)
 print("las cordenadas CRS son: "+str(geo.crs))
 codiprov = covid.loc[pd.IndexSlice[:,'2021-01'],['codpcia','departamen','provincia']]
@@ -66,14 +66,15 @@ ind_fall_conf = lq_[0]
 #la variable se elige para comparar con diferentes opciones
 variable = covid_acum[['clasificac','personas']]
 
-
+print("bien hasta acá")
+ereroe
 
 #%% En esta sección se agregan las librerarías para calcular el I de Moran
 
 # Además se crea una función que va distingir aquellos indices significativos
 
 
-from libpysal.weights import Queen, Rook, KNN
+from pysal.lib.weights import Queen, Rook, KNN
 covid_acum_geo = covid_ult_mes.copy()
 covid_acum_geo['geometry'] = geo
 w_queen = Queen.from_dataframe(covid_acum_geo)
@@ -1016,16 +1017,6 @@ mapa_grupos(ae_km_moran)
 result_aemoran = indicadores.compara_metricas(ae_km_moran, new_panel)
 result_aemoran.corr()
 
-#### km2 agregando indices de moran
-xx = np.c_[X,pipe.fit_transform(new_panel)[:,-2:]]
-xx = norm_l2.fit_transform(xx)
-km3 = copy(km)
-km3.fit(xx)
-km3.best_metrics_
-mapa_grupos(km3)
-result_km3 = indicadores.compara_metricas(km3,new_panel)
-
-
 ###### Resultados de las diferentes metodologías
 
 km.best_metrics_
@@ -1054,12 +1045,6 @@ ae_km_moran.best_metrics_
 result_aemoran.iloc[ae_km_moran.best_metrics_.index] 
 result_aemoran.mean()
 result_aemoran.std()
-
-km3.best_metrics_
-result_km3.iloc[km3.best_metrics_.index] 
-result_km3.mean()
-result_km3.std()
-
 
 ##### modelo real
 
@@ -1118,7 +1103,7 @@ class agrupamientos():
         
         ind = calcular_incicadores(self.pa.df, self.pa.panel_df, self.pa.regiones)
         return ind.compara_metricas(metodo, data)
-"""
+
 pa = proceso_aleatorio(covid_acum_geo.personas, regiones).generar_datos()
 
 agru = agrupamientos(pa,[km])
@@ -1138,7 +1123,7 @@ import pickle
 with open("Resultados/rdos_mi.pickle", "wb") as f:
     pickle.dump(rdos, f)
 
-"""
+
 
 #%%
 # simulaciones con más de una variable
@@ -1300,6 +1285,8 @@ indic.Hg_relat(df2, ae_aglo.best_model_['modelo'].iloc[0])
 indic_nuevos.Hg_relat(df2_nuevo, ae_aglo.best_model_['modelo'].iloc[0])
 
 
+
+
 ###
 
 
@@ -1343,8 +1330,6 @@ decoder = layers.Dense(17*2, activation = "sigmoid")(encoder)
 autoencoder = Model(inputs = [input1,input2,input3], outputs = decoder)
 autoencoder.compile(optimizer = "sgd", loss = "mse")#"categorical_crossentropy")
 enco = Model(inputs = [input1,input2,input3], outputs = encoder)
-
-#%%
 
 inicio = time.time()
 rdos = []

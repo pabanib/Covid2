@@ -379,7 +379,32 @@ class evaluaciones_grupos():
            col = grupos[:,j]       
            self.lq_globales(col)
            self.lq_locales(col)
-           
+
+        
+def homog(X, grupos,poblacion = 'personas'):
+    # X debe ser un dataframe que contenga las columnas de la variable y la poblaional
+    X = X.copy()
+    X['grupo'] = grupos
+    part = particion('grupo')
+    #return part.transform(X)
+    return homogeneidad_particion(X, part,poblacion)
+
+def homog_relat(X,var, grupos):
+    # X debe ser un data frame que contenga las columnas de la variable y la poblaional
+    X = X.copy()
+    X['grupo'] = grupos
+    part = particion('grupo')
+    #return part.transform(X)
+    return homogeneidad_particion(X, part)/np.var(X[var])
+
+def homog_relat2(X,grupos,poblacion = 'personas'):
+    # X debe ser un data frame que contenga las columnas de la variable y la poblaional
+    X = X.copy()
+    X['grupo'] = grupos
+    part = particion('grupo')
+    HT = homog(X,np.ones(len(X)), poblacion)
+    return homogeneidad_particion(X, part, poblacion)/HT
+
         
 #%% 
 
