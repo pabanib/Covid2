@@ -14,6 +14,8 @@ import geopandas as gpd
 import os
 import numpy as np
 import preproceso as pre 
+import pyproj
+pyproj.datadir.set_data_dir('C:\\Anaconda3\\envs\\covid\\share\\proj')
 
 dir_principal = os.getcwd()
 dir_datos = dir_principal+'\\datos'
@@ -91,12 +93,12 @@ def df_covid():
     covid = gpd.read_file(dir_datos+'/covid_periodos.shp', index = True)
     covid = covid.set_index(['link','mes']).sort_index(level = 0)
     covid = covid.loc[pd.IndexSlice[:,'2020-03':],:]
-    #covid = covid.to_crs({'init':'POSGAR94'})
+    covid = covid.to_crs({'init': 'EPSG:5345'})
     
     # Separamos los campos geometricos del dataframe
     geo = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry']
     geo = geo.reset_index(level = 'mes', drop = True)
-    centroides = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry'].centroid#to_crs('POSGAR94').centroid
+    centroides = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry'].centroid#to_crs('EPSG:4694').centroid
     centroides = centroides.reset_index(level = 'mes', drop = True)
 
     codiprov = covid.loc[pd.IndexSlice[:,'2021-01'],['codpcia','departamen','provincia']]

@@ -150,7 +150,7 @@ class lq_peri():
         matriz = matrix_inters_k_debil(l)
         self.matriz_intersec_deb = matriz
         p = len(matriz)
-        return (matriz.sum()/(p*(p-1)))+1/p
+        return (matriz.sum()/(p*(p-1)))
 
 class lq_multiple():
     def __init__(self, X, pares_calc):
@@ -286,10 +286,25 @@ def SSD(DF, columna, atrib):
 
 class evaluaciones_lq():
     
-    def __init__(self, grupos, variables, poblacion):
+    #eva = evaluaciones_lq( ['fallecido','clasificac'], 'personas')
+    #eva.ajustar_datos(covid_acum)        
+    #eva.lq_globales(np.random.randint(0,8,525))        
+    #eva.rdos_glob['fallecido']    
+    
+    #eva.calcular_indices(covid_acum, np.random.randint(0,8,525))
+    #eva.calcular_homogeneidad(covid_acum, np.random.randint(0,8,525))
+    
+    #eva.lq_locales(eva.grupos)
+    #eva.rdos_loc['fallecido']['homogeneidad']
+    #eva.rdos_loc['fallecido']['regiones'].keys()
+    #eva.rdos_loc['fallecido']['regiones'][0]['indices']
+    #eva.rdos_loc['fallecido']['regiones'][1]['indices']
+
+    
+    def __init__(self, variables, poblacion):
         from procesos import peri_columna
              
-        self.grupo = grupos
+        #self.grupo = 
         self.variables = variables
         self.poblacion = poblacion
         self.peri_col = peri_columna()
@@ -356,17 +371,32 @@ class evaluaciones_lq():
             var['regiones'] = region_
             var['homogeneidad']= np.mean(np.array(res))
             self.rdos_loc[i] = var
-    def calcular_indices(self, X):
+                
+    def calcular_indices(self, X, grupo):
         #devuelve el índice débil y la homogeneidad de la partición
+        self.grupos = grupo
         self.ajustar_datos(X)
-        self.lq_globales(self.grupo)
-        self.lq_locales(self.grupo)
+        self.lq_globales(grupo)
+        self.lq_locales(grupo)
         rdos = {}
         for v in self.variables:
             ind_debil = self.rdos_glob[v]['indices'][1]
             homog = self.rdos_loc[v]['homogeneidad']
             rdos[v] = ind_debil,np.sqrt(homog)
         return rdos
+    
+    def calcular_homogeneidad(self, X,grupo):
+        
+        self.ajustar_datos(X)
+        homog_ = {}
+        for v in self.variables:
+            
+            H = homog(self.bd_locales[v],grupo, self.poblacion)
+            HR = homog_relat2(self.bd_locales[v],grupo, self.poblacion)
+            homog_[v] = {'H': H, 'HR': HR}
+                 
+        self.Homog = homog_
+        return homog_
          
 class evaluaciones_grupos():
         
@@ -461,18 +491,3 @@ def homog_relat2(X,grupos,poblacion = 'personas'):
 # #la variable se elige para comparar con diferentes opciones
 # variable = fallecidos #covid2[['clasificac','personas']]
 
-#%%
-
-# eva = evaluaciones_lq(np.random.randint(0,8,525), ['fallecido','clasificac'], 'personas')
-# eva.ajustar_datos(covid_acum)        
-# eva.lq_globales(eva.grupo)        
-# eva.rdos_glob['fallecido']    
-# #eva.rdos_['clasificac']
-
-# eva.lq_locales(eva.grupo)
-# eva.rdos_loc['fallecido']['homogeneidad']
-# eva.rdos_loc['fallecido']['regiones'].keys()
-# eva.rdos_loc['fallecido']['regiones'][0]['indices']
-# eva.rdos_loc['fallecido']['regiones'][1]['indices']
-
-# eva.calcular_indices(covid_acum)
