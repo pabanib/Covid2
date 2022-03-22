@@ -93,7 +93,7 @@ def df_covid():
     covid = gpd.read_file(dir_datos+'/covid_periodos.shp', index = True)
     covid = covid.set_index(['link','mes']).sort_index(level = 0)
     covid = covid.loc[pd.IndexSlice[:,'2020-03':],:]
-    covid = covid.to_crs({'init': 'EPSG:5345'})
+    covid = covid.to_crs(epsg = '5345')
     
     # Separamos los campos geometricos del dataframe
     geo = covid.loc[pd.IndexSlice[:,'2021-01'],'geometry']
