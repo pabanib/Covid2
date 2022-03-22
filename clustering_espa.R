@@ -1,4 +1,4 @@
-setwd("D:/MisDocumentos/tesis_codigos/COVID")
+setwd("D:/Codigos/COVID")
 
 library(digest)
 library(rgeoda)
