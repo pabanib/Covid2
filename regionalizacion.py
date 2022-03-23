@@ -409,7 +409,7 @@ class Datos():
             dfs = {}
             for i in range(df.shape[1]):
                d = df[:,i] 
-               dfs[v[i]] = d.reshape(1,-1)
+               dfs[v[i]] = d.reshape(-1,1)
                
         #dfs[self.poblacion] =  df.loc[:,pd.IndexSlice[self.poblacion,:]] 
         return dfs
@@ -425,7 +425,7 @@ class dic_datos():
         if ajustar:
             self.dic[key] = self.pipeline.fit_transform(df) if df.shape[0] > 1 else self.pipeline.fit_transform(df).T
         else:
-            self.dic[key] = df
+            self.dic[key] = df if df.shape[0] > 1 else df.T
     
     def retornar_dfs(self, todo = False, separado = []):
         
@@ -621,7 +621,7 @@ class entorno(Datos, dic_datos, autoencoders):
         d = self.separar_variables()
         self.columnas = list(d.keys())
         for c in self.columnas:
-            self.agregar_data(c, d[c].T)
+            self.agregar_data(c, d[c])
         self.agregar_data('coord',self.coord_centroides)
         self.agregar_data('I_Moran', self.calc_Imoran(self.W))
         self.agregar_data('prom_vecinos', self.calc_prom_vec(self.W))

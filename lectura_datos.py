@@ -86,7 +86,7 @@ def __genera_shp():
     
     covid.to_file('datos/covid_periodos.shp', index = True)
 
-def df_covid():
+def df_covid(dir_datos = dir_datos):
     if os.path.exists(dir_datos+'/covid_periodos.shp') == False:
         __genera_shp()
     
@@ -121,7 +121,7 @@ def df_covid():
     
     return covid,geo, centroides, codiprov,covid_acum,personas
 
-covid,geo, centroides, codiprov,covid_acum,personas = df_covid()
+#covid,geo, centroides, codiprov,covid_acum,personas = df_covid()
 
 
     
