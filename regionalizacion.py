@@ -397,19 +397,21 @@ class Datos():
         if all(self.df) == False:
             df = self.convertir_a_df(self.panel_df, self.variables)
             #df = df[v].values
+            n = len(df)
             dfs = {}
             for i in v:
-                d = df[[i]].values.T
+                d = df[[i]].values.reshape(n,-1)
                 dfs[i] = d
             
         else:
             df = self.df.drop('geometry', axis = 1)
+            n = len(df)
             df = df[v].values
             
             dfs = {}
             for i in range(df.shape[1]):
                d = df[:,i] 
-               dfs[v[i]] = d.reshape(-1,1)
+               dfs[v[i]] = d.reshape(n,-1)
                
         #dfs[self.poblacion] =  df.loc[:,pd.IndexSlice[self.poblacion,:]] 
         return dfs
@@ -423,10 +425,15 @@ class dic_datos():
     def agregar_data(self, key, df, ajustar = True):
         
         if ajustar:
-            self.dic[key] = self.pipeline.fit_transform(df) if df.shape[0] > 1 else self.pipeline.fit_transform(df).T
+            
+            v = self.pipeline.fit_transform(df) if df.shape[0] > 1 else self.pipeline.fit_transform(df).T
+            assert np.all(v == 0) ==  False, "Todos los valores son iguales"    
+            self.dic[key] = v
         else:
             self.dic[key] = df if df.shape[0] > 1 else df.T
-    
+        
+        
+        
     def retornar_dfs(self, todo = False, separado = []):
         
         dfs = []
