@@ -4,7 +4,7 @@ save_data_on_exit = True
 save_history = True
 save_non_project_files = False
 project_type = empty-project-type
-recent_files = ['lq.py', 'regionalizacion.py', 'procesos.py', 'lectura_datos.py', 'prueba infogeo.py', 'simulacion.py']
+recent_files = ['lq.py', 'regionalizacion.py', 'simulaciones4.py', 'prueba infogeo.py', 'deep_cluster.py']
 
 [main]
 version = 0.2.0

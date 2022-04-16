@@ -654,7 +654,7 @@ class entorno(Datos, dic_datos, autoencoders):
             inp = self.retornar_dfs(separado = columnas_input)
             out = self.retornar_dfs(separado = [col_outputs])[0]
             
-            self.fit_autoencoders(inp, out, epochs = 50,**kwargs)
+            self.fit_autoencoders(inp, out, epochs = 500,**kwargs)
             X = self.enco.predict(inp)
             
         else:
