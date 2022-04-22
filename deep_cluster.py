@@ -9,14 +9,14 @@ from time import time
 import numpy as np
 import keras.backend as K
 from keras.layers import Layer, InputSpec
-from keras.layers import Dense, Input
+from keras.layers import Dense, Input, concatenate
+from tensorflow.keras import regularizers
 from keras.models import Model
 from tensorflow.keras.optimizers import SGD
 from keras import callbacks
 from keras.initializers import VarianceScaling
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans,AgglomerativeClustering
 import matplotlib.pyplot as plt
-
 
 
 class ClusteringLayer(Layer):
@@ -81,92 +81,106 @@ class ClusteringLayer(Layer):
         config = {'n_clusters': self.n_clusters}
         base_config = super(ClusteringLayer, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
-#%%    
+    
 
-from sklearn.datasets import make_circles 
+np.random.seed(5465)
+n_enc = 6
 
-x,y = make_circles(1000, factor = 0.3,noise = 0.1)
-
-fig, ax = plt.subplots()
-ax.scatter(x[:,0], x[:,1], c = y)
-
-input = Input(shape = (2,))
-cluster = ClusteringLayer(n_clusters = 2, name = 'clustering' )(input)
-
-model = Model(inputs=input, outputs = cluster)
-model.compile(optimizer = 'adam', loss = 'kld')
-
-km = KMeans(n_clusters = 2)
-y_pred = km.fit_predict(x)
-
-fig, ax = plt.subplots()
-ax.scatter(x[:,0], x[:,1], c = y_pred)
-
-y_pred_last = np.copy(y_pred)
-
-model.get_layer(name="clustering").set_weights([km.cluster_centers_])
-
-def target_distribution(q):
-    weight = q ** 2 / q.sum(0)
-    return (weight.T / weight.sum(1)).T
-
-loss = 0
-index = 0
-maxiter = 100
-update_interval = 140
-index_array = np.arange(x.shape[0])
-tol = 0.001
-#%%
-batch_size = 100
-for ite in range(int(maxiter)):
-    if ite % update_interval == 0:
-        q = model.predict(x, verbose=0)
-        p = target_distribution(q)  # update the auxiliary target distribution p
-
-        # evaluate the clustering performance
-        y_pred = q.argmax(1)
+class sdec():
+    def __init__(self, n_enc, inp_shape = [100,100]):
         
-        """
-        if y is not None:
-            acc = 0 #np.round(metrics.acc(y, y_pred), 5)
-            nmi = np.round(metrics.nmi(y, y_pred), 5)
-            ari = np.round(metrics.ari(y, y_pred), 5)
-            loss = np.round(loss, 5)
-            print('Iter %d: acc = %.5f, nmi = %.5f, ari = %.5f' % (ite, acc, nmi, ari), ' ; loss=', loss)     """
-        # check stop criterion - model convergence
-        delta_label = np.sum(y_pred != y_pred_last).astype(np.float32) / y_pred.shape[0]
+        self.n_enc = n_enc
+        self.n_clusters = n_enc
+        self.inp1_shape = inp_shape[0]
+        self.inp2_shape = inp_shape[1]
+    
+    def gen_modelo(self):
+        
+        inp1 = Input(shape = [self.inp1_shape,])
+        inp2 = Input(shape = [self.inp2_shape,])
+        dense1 = Dense(80, activation = "relu")(inp1)
+        dense1 = Dense(40, activation = "relu")(dense1)
+        dense1 = Dense(10, activation = "relu")(dense1)
+        dense2 = Dense(80, activation = "relu")(inp2)
+        dense2 = Dense(40, activation = "relu")(dense2)
+        dense2 = Dense(10, activation = "relu")(dense2)
+        concat = concatenate([dense1,dense2])
+        concat = Dense(50, activation = "relu")(concat)
+        enco = Dense(n_enc, activation = "relu")(concat)
+        dense = Dense(40, activation = "relu",  kernel_regularizer = regularizers.l2(0.01))(enco)
+        dense = Dense(80, activation = "relu",  kernel_regularizer = regularizers.l2(0.01))(dense)
+        decoder = Dense(self.inp1_shape+self.inp1_shape, activation = "relu",  kernel_regularizer = regularizers.l2(0.01))(dense)
+        
+        autoencoder = Model(inputs = [inp1,inp2], outputs = decoder)
+        encoder = Model(inputs = [inp1,inp2], outputs = enco)
+        autoencoder.compile(optimizer = 'adam', loss = 'cosine_similarity')
+
+        self.autoencoder = autoencoder
+        self.encoder = encoder
+   
+        n_clusters = self.n_enc
+        clustering_layer = ClusteringLayer(n_clusters, name='clustering')(encoder.output)
+        model = Model(inputs=encoder.input, outputs=clustering_layer)
+        model.compile(optimizer='adam', loss='kld')
+        self.model = model
+
+    def train_autoencoder(self, inp, out):
+        
+        self.autoencoder.fit(inp,out, epochs = 100, validation_split = 0.2 , verbose = False) 
+
+    def ajustar_modelo(self, X, W, cc = []):
+        
+        km = KMeans(self.n_clusters)
+        km.fit(self.encoder.predict(X))
+        if cc == []:
+            cc = km.cluster_centers_
+        else:
+            cc = cc
+        y_pred = km.labels_
         y_pred_last = np.copy(y_pred)
-        if ite > 0 and delta_label < tol:
-            print('delta_label ', delta_label, '< tol ', tol)
-            print('Reached tolerance threshold. Stopping training.')
-            break
-    idx = index_array[index * batch_size: min((index+1) * batch_size, x.shape[0])]
-    loss = model.fit(x,p)
-    #loss = model.train_on_batch(x=x[idx], y=p[idx])
-    index = index + 1 if (index + 1) * batch_size <= x.shape[0] else 0
+        self.model.get_layer(name="clustering").set_weights([cc])
 
-#%%
+        def target_distribution(q):
+            weight = W.todense()@(q ** 2 / q.sum(0))
+            return (weight.T / weight.sum(1).reshape(525,)).T
+        
+        loss = 0
+        index = 0
+        maxiter = 1000
+        update_interval = 20
+        
+        tol = 0.0001 # tolerance threshold to stop training
+        
+        aglo = AgglomerativeClustering(self.n_clusters, connectivity=W)
+        
+        for ite in range(int(maxiter)):
+            if ite % update_interval == 0:
+                q = self.model.predict(X, verbose=0)
+                p = target_distribution(q)  # update the auxiliary target distribution p
+        
+                # evaluate the clustering performance
+                y_pred = aglo.fit_predict(q)
+                #y_pred = q.argmax(1)
+                
+                """
+                if y is not None:
+                    acc = 0 #np.round(metrics.acc(y, y_pred), 5)
+                    nmi = np.round(metrics.nmi(y, y_pred), 5)
+                    ari = np.round(metrics.ari(y, y_pred), 5)
+                    loss = np.round(loss, 5)
+                    print('Iter %d: acc = %.5f, nmi = %.5f, ari = %.5f' % (ite, acc, nmi, ari), ' ; loss=', loss)     """
+                # check stop criterion - model convergence
+                delta_label = np.sum(y_pred != y_pred_last).astype(np.float32) / y_pred.shape[0]
+                y_pred_last = np.copy(y_pred)
+                if ite > 0 and delta_label < tol:
+                    print('delta_label ', delta_label, '< tol ', tol)
+                    print('Reached tolerance threshold. Stopping training.')
+                    break
+            loss = self.model.fit(x=[X[0],X[1]], y=p, verbose = False)
+
+        self.y_pred = aglo.fit_predict(q)
+
+version = 5
 
 
-cl = model.get_layer(name = 'clustering')
-cl.initial_weights
 
-y_pr = model.predict(x).argmax(1)
-fig, ax = plt.subplots()
-ax.scatter(x[:,0], x[:,1], c = y_pr)
-
-w = q**2/q.sum(0)
-w.sum(1)
-
-p.shape
-q.shape
-q[:,0]
-
-K.expand_dims(q[:,0] **2 + q[:,1]**2)
-
-xx = np.random.randn(2,2)#.reshape(1,-1)
-xx
-q = model.predict(xx)
-target_distribution(q)
-q
-(q ** 2 / q.sum(0)).sum(1)

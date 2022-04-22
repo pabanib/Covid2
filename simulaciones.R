@@ -1,4 +1,5 @@
 setwd("D:/Archivos/Codigos/COVID")
+#setwd("G:/My Drive/1. Tesis Pablo Quintana/covid/covid2")
 
 library(digest)
 library(rgeoda)
@@ -6,56 +7,126 @@ library(sf)
 
 enco = st_read("Geodabd/sim4/encoders.shp")
 prop = st_read("Geodabd/sim4/prop.shp")
-prop3 = st_read("Geodabd/sim4/prop_3.shp")
 
-datos <- enco[,c(names(enco)[1:6])]
+rdos <- enco[,c(names(enco)[1:4])]
 
 w_knn6 <- knn_weights(enco, 6)
 n_grupos = 6
-skater <- skater(n_grupos, w_knn6, datos)
-enco$sk <- skater$Clusters
-plot(enco[c('sk','geometry')])
+skater <- skater(n_grupos, w_knn6, enco)
+rdos$ae_sk <- skater$Clusters
+plot(rdos[c('ae_sk','geometry')])
 
 skater$`The ratio of between to total sum of squares`
 
-redcap <- redcap(n_grupos, w_knn6, datos, "fullorder-completelinkage")     
-enco$redcap <- redcap$Clusters
-plot(enco[c('redcap','geometry')])
+redcap <- redcap(n_grupos, w_knn6, enco, "fullorder-completelinkage")     
+rdos$ae_redcap <- redcap$Clusters
+plot(rdos[c('ae_redcap','geometry')])
 
 redcap$`The ratio of between to total sum of squares`
 
-schc <- schc(n_grupos,w_knn6,datos, 'complete')
-enco$schc <- schc$Clusters
-plot(enco[c('schc','geometry')])
+schc <- schc(n_grupos,w_knn6,enco, 'complete')
+rdos$ae_schc <- schc$Clusters
+plot(rdos[c('ae_schc','geometry')])
 
-datos2 <- prop[,c(names(prop)[1:200])]
+# Todos los datos
 
-skater <- skater(n_grupos, w_knn6, datos2)
-prop$sk <- skater$Clusters
-plot(prop[c('sk','geometry')])
+skater <- skater(n_grupos, w_knn6, prop)
+rdos$sk <- skater$Clusters
+plot(rdos[c('sk','geometry')])
 
 skater$`The ratio of between to total sum of squares`
 
-redcap <- redcap(n_grupos, w_knn6, datos2)
-prop$redcap <- redcap$Clusters
-plot(prop[c('redcap','geometry')])
+redcap <- redcap(n_grupos, w_knn6, prop)
+rdos$redcap <- redcap$Clusters
+plot(rdos[c('redcap','geometry')])
 
 redcap$`The ratio of between to total sum of squares`
 
+st_write(rdos,"Geodabd/sim4/rdos_rgeod.shp", delete_layer = T)
 
-datos3 <- prop3[,c(names(prop3)[1:200])]
+######
 
-skater <- skater(n_grupos, w_knn6, datos3)
-prop3$sk <- skater$Clusters
-plot(prop3[c('sk','geometry')])
+enco = st_read("Geodabd/sim5/encoders.shp")
+prop = st_read("Geodabd/sim5/prop.shp")
+
+rdos <- enco[,c(names(enco)[1:4])]
+
+w_knn6 <- knn_weights(enco, 6)
+n_grupos = 6
+skater <- skater(n_grupos, w_knn6, enco)
+rdos$ae_sk <- skater$Clusters
+plot(rdos[c('ae_sk','geometry')])
 
 skater$`The ratio of between to total sum of squares`
 
-redcap <- redcap(n_grupos, w_knn6, datos3)
-prop3$redcap <- redcap$Clusters
-plot(prop3[c('redcap','geometry')])
+redcap <- redcap(n_grupos, w_knn6, enco, "fullorder-completelinkage")     
+rdos$ae_redcap <- redcap$Clusters
+plot(rdos[c('ae_redcap','geometry')])
 
 redcap$`The ratio of between to total sum of squares`
+
+schc <- schc(n_grupos,w_knn6,enco, 'complete')
+rdos$ae_schc <- schc$Clusters
+plot(rdos[c('ae_schc','geometry')])
+
+# Todos los datos
+
+skater <- skater(n_grupos, w_knn6, prop)
+rdos$sk <- skater$Clusters
+plot(rdos[c('sk','geometry')])
+
+skater$`The ratio of between to total sum of squares`
+
+redcap <- redcap(n_grupos, w_knn6, prop)
+rdos$redcap <- redcap$Clusters
+plot(rdos[c('redcap','geometry')])
+
+redcap$`The ratio of between to total sum of squares`
+
+st_write(rdos,"Geodabd/sim5/rdos_rgeod.shp", delete_layer = T)
+
+##### Tercera simulacion
+
+enco = st_read("Geodabd/sim6/encoders.shp")
+prop = st_read("Geodabd/sim6/prop.shp")
+
+rdos <- enco[,c(names(enco)[1:4])]
+
+w_knn6 <- knn_weights(enco, 6)
+n_grupos = 6
+skater <- skater(n_grupos, w_knn6, enco)
+rdos$ae_sk <- skater$Clusters
+plot(rdos[c('ae_sk','geometry')])
+
+skater$`The ratio of between to total sum of squares`
+
+redcap <- redcap(n_grupos, w_knn6, enco, "fullorder-completelinkage")     
+rdos$ae_redcap <- redcap$Clusters
+plot(rdos[c('ae_redcap','geometry')])
+
+redcap$`The ratio of between to total sum of squares`
+
+schc <- schc(n_grupos,w_knn6,enco, 'complete')
+rdos$ae_schc <- schc$Clusters
+plot(rdos[c('ae_schc','geometry')])
+
+# Todos los datos
+
+skater <- skater(n_grupos, w_knn6, prop)
+rdos$sk <- skater$Clusters
+plot(rdos[c('sk','geometry')])
+
+skater$`The ratio of between to total sum of squares`
+
+redcap <- redcap(n_grupos, w_knn6, prop)
+rdos$redcap <- redcap$Clusters
+plot(rdos[c('redcap','geometry')])
+
+redcap$`The ratio of between to total sum of squares`
+
+st_write(rdos,"Geodabd/sim6/rdos_rgeod.shp", delete_layer = T)
+
+
 ####
 
 manifold = st_read("Geodabd/sim4/manifold.shp")
@@ -73,4 +144,45 @@ plot(manifold[c('redcap','geometry')])
 
 redcap$`The ratio of between to total sum of squares`
 
+### Caso real Covid19
 
+
+
+enco = st_read("Geodabd/covid/encoders.shp")
+prop = st_read("Geodabd/covid/prop.shp")
+
+rdos <- enco[,c(names(enco)[1:4])]
+
+w_knn6 <- knn_weights(enco, 6)
+n_grupos = 6
+skater <- skater(n_grupos, w_knn6, enco)
+rdos$ae_sk <- skater$Clusters
+plot(rdos[c('ae_sk','geometry')])
+
+skater$`The ratio of between to total sum of squares`
+
+redcap <- redcap(n_grupos, w_knn6, enco, "fullorder-completelinkage")     
+rdos$ae_redcap <- redcap$Clusters
+plot(rdos[c('ae_redcap','geometry')])
+
+redcap$`The ratio of between to total sum of squares`
+
+schc <- schc(n_grupos,w_knn6,enco, 'complete')
+rdos$ae_schc <- schc$Clusters
+plot(rdos[c('ae_schc','geometry')])
+
+# Todos los datos
+
+skater <- skater(n_grupos, w_knn6, prop)
+rdos$sk <- skater$Clusters
+plot(rdos[c('sk','geometry')])
+
+skater$`The ratio of between to total sum of squares`
+
+redcap <- redcap(n_grupos, w_knn6, prop)
+rdos$redcap <- redcap$Clusters
+plot(rdos[c('redcap','geometry')])
+
+redcap$`The ratio of between to total sum of squares`
+
+st_write(rdos,"Geodabd/covid/rdos_rgeod.shp", delete_layer = T)
