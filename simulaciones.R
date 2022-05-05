@@ -1,5 +1,5 @@
-setwd("D:/Archivos/Codigos/COVID")
-#setwd("G:/My Drive/1. Tesis Pablo Quintana/covid/covid2")
+#setwd("D:/Archivos/Codigos/COVID")
+setwd("G:/My Drive/1. Tesis Pablo Quintana/covid/covid2")
 
 library(digest)
 library(rgeoda)
@@ -145,8 +145,6 @@ plot(manifold[c('redcap','geometry')])
 redcap$`The ratio of between to total sum of squares`
 
 ### Caso real Covid19
-
-
 
 enco = st_read("Geodabd/covid/encoders.shp")
 prop = st_read("Geodabd/covid/prop.shp")
